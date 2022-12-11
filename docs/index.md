@@ -9,6 +9,6 @@
 
 ## Picts
 
-![ComfortTX](/picts/ComfortTX.jpeg)
-![ComfortTXusbhost](/picts/USBkbd.jpeg)
-![1](../picts/QO100.jpeg)
+![ComfortTX](http://www.fihl.net/hsCoRoutines/picts/ComfortTX.jpeg)
+![ComfortTXusbhost](http://www.fihl.net/hsCoRoutines/picts/USBkbd.jpeg)
+![QO100](http://www.fihl.net/hsCoRoutines/picts/QO100.jpeg)
