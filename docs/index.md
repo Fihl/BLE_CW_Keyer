@@ -9,8 +9,8 @@
 
 ## Picts
 
-![ComfortTX](http://www.fihl.net/CWComfort/tree/main/picts/ComfortTX.jpeg)
+![ComfortTX](https://github.com/Fihl/CWComfort/blob/main/picts/ComfortTX.jpeg)
 
-![ComfortTXusbhost](http://www.fihl.net/CWComfort/tree/main/picts/USBkbd.jpeg)
+![ComfortTXusbhost](https://github.com/Fihl/CWComfort/blob/main/picts/USBkbd.jpeg)
 <br>
-![QO100](http://www.fihl.net/CWComfort/tree/main/picts/QO100.jpeg)
+![QO100](https://github.com/Fihl/CWComfort/blob/main/picts/QO100.jpeg)
