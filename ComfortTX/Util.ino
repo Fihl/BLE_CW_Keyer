@@ -11,8 +11,6 @@
 #define u32 unsigned long int
 #define s32 signed long int
 
-#include <string.h>
-
 void tmDiff2s(char* buf10, unsigned long tm1, unsigned long tm2)
 {
   u16 i = tm1>tm2? tm1-tm2:tm2-tm1;

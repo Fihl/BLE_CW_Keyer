@@ -65,13 +65,6 @@ const morse_t MorseCodes[] = {
   {0,   0}
 };
 
-void doSnd(int len)
-{
-  #ifdef PIN_tone
-    tone(PIN_tone, HzTone, len);
-  #endif
-}
-
 byte decode(char letter) {
   for (byte n=0; char ch = MorseCodes[n].ch; n++) {
     if (letter == ch) 

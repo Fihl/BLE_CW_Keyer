@@ -9,11 +9,17 @@
  * or CW keying output
  * Input from nrf24 or simple CW keying 
  * 
+ *   The circuit:  
+ *   - LDR connected from A0  to ground 
+ *   
  * Info: https://www.deviceplus.com/arduino/nrf24l01-rf-module-tutorial/ 
  * https://forum.mysensors.org/topic/10327/rf-nano-nano-nrf24-for-just-3-50-on-aliexpress/3
  * PARIS:   http://www.kent-engineers.com/codespeed.htm
  * 
  */
+
+#define doDebug 0
+#define SIMULATE true
 
 #include <SPI.h>
 #include "printf.h" //Installeret library
@@ -23,24 +29,22 @@
 #include "LDReye.h"
 LDReye LDR;
 
-// #define PIN_tone 2  
-// #define HzTone 700
-
 #define LDRpin A0
 #define LDRpinGND A1
+
+#define LEDpin    8
+#define LEDpinGND 7
 
 // #define LED_BUILTIN 2
 
 #define KEY_LED 2
 #define KEY_NPN 3
 
-#define doDebug 0
-
 //nRF24L01 transceiver
 //pin # for the CE pin, and pin # for the CSN pin
-RF24 radio(9,10);     //UNO, or nano With external antenna //Nano with nrf, Board: Nano, Normal bootloader
+//RF24 radio(9,10);     //UNO, or nano With external antenna //Nano with nrf, Board: Nano, Normal bootloader
 //RF24 radio(10,9);     //Nano, without external antenna DEN ER DØD !!
-//RF24 radio(7,8);      //Den røde!!! (Old bootloader)
+RF24 radio(7,8);      //Den røde!!! (Old bootloader)
 //RF24 radio(2,3);      //DUE, med nrf24l01 på ISP port (i bunden)
 
 uint8_t TXaddress[6] = "1aabT";
@@ -51,11 +55,11 @@ char RXbuffer[SIZE+1] = "A";
 char TXbuffer[SIZE+1] = "Pa";
 
 void setup() {
-  //Serial.begin(115200);
-  //while (!Serial); //Leonardo is slow
+  Serial.begin(115200);
+  while (!Serial); //Leonardo is slow
   //Serial.println("CW tx via BLE"); 
 
-  LDR.init(false, LDRpin);
+  LDR.LDRinit(true, SIMULATE, LDRpin);
   
   digitalWrite(LED_BUILTIN, 0); pinMode(LED_BUILTIN, OUTPUT); 
   digitalWrite(KEY_LED, 0); pinMode(KEY_LED, OUTPUT); 
@@ -66,6 +70,10 @@ void setup() {
   //digitalWrite(KEY_NPN, 1); digitalWrite(KEY_LED, 1); delay(25000); //testing
   //while (1) { digitalWrite(KEY_LED, 1-digitalRead(KEY_LED)); delay(250); }
   //while (1) { digitalWrite(KEY_NPN, 1-digitalRead(KEY_NPN)); delay(250); }
+  
+  digitalWrite(LEDpinGND, 0); pinMode(LEDpinGND, OUTPUT);
+  digitalWrite(LEDpin, 0);    pinMode(LEDpin, OUTPUT);
+  //while (1) { digitalWrite(LEDpin, 1-digitalRead(LEDpin)); delay(250); }
   
   if (!radio.begin()) {
     Serial.println("Radio not found!!");
@@ -78,12 +86,14 @@ void setup() {
   radio.setPayloadSize(SIZE);     // default value is the maximum 32 bytes
   radio.openWritingPipe(TXaddress);
   radio.openReadingPipe(1, RXaddress); // using pipe 1, RX address of the receiving end
-
+  
   radio.startListening(); // put radio in RX mode
   
-  printf_begin();             // needed only once for printing details
-  radio.printPrettyDetails(); // (larger) function that prints human readable data
-  //radio.printDetails();       // (smaller) function that prints raw register values
+  if (0) {
+    printf_begin();             // needed only once for printing details
+    radio.printPrettyDetails(); // (larger) function that prints human readable data
+    //radio.printDetails();       // (smaller) function that prints raw register values
+  }
 
   Scheduler.startLoop(LoopKeyer);
   Scheduler.startLoop(LoopIdle);
@@ -179,20 +189,21 @@ void LoopLDR() {
   byte retry;
   for (;;) {
     Scheduler.delay(5);
-    bool LDRstate = LDR.loop();
+    bool LDRstate = LDR.LDRpoll();
     if (lastLDRstate != LDRstate) {
       lastLDRstate = LDRstate;
       retry = 5;
     }
-    pinMode(LED_BUILTIN, OUTPUT);
     digitalWrite(LED_BUILTIN, LDRstate);
+    digitalWrite(LEDpin, LDRstate);
     if (retry >= 1) {
-      retry++;
+      retry--;
       TXbuffer[0]='L';
       TXbuffer[1]=LDRstate;
       radio.stopListening();
       radio.write(&TXbuffer, 2);
       radio.startListening();
+      //Serial.print(LDRstate);
     }
   }
 }
