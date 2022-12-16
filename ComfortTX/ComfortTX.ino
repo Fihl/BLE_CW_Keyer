@@ -42,9 +42,9 @@ LDReye LDR;
 
 //nRF24L01 transceiver
 //pin # for the CE pin, and pin # for the CSN pin
-//RF24 radio(9,10);     //UNO, or nano With external antenna //Nano with nrf, Board: Nano, Normal bootloader
+RF24 radio(9,10);     //UNO, or nano With external antenna //Nano with nrf, Board: Nano, Normal bootloader
 //RF24 radio(10,9);     //Nano, without external antenna DEN ER DØD !!
-RF24 radio(7,8);      //Den røde!!! (Old bootloader)
+//RF24 radio(7,8);      //Den røde!!! (Old bootloader)
 //RF24 radio(2,3);      //DUE, med nrf24l01 på ISP port (i bunden)
 
 uint8_t TXaddress[6] = "1aabT";
