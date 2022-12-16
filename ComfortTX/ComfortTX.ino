@@ -1,6 +1,7 @@
 //ComfortTX.ino
 /*
  * nrf24 Documentation at https://nRF24.github.io/RF24
+ * https://github.com/keywish/keywish-nano-plus/tree/master/RF-Nano
  * 
  * Author: Christen Fihl OZ1AAB
  * 
@@ -19,13 +20,21 @@
 #include "RF24.h"
 #include <Cth.h> //CopyThreads, super god
 
+#include "LDReye.h"
+LDReye LDR;
+
 // #define PIN_tone 2  
 // #define HzTone 700
+
+#define LDRpin A0
+#define LDRpinGND A1
+
+// #define LED_BUILTIN 2
 
 #define KEY_LED 2
 #define KEY_NPN 3
 
-#define doDebug 1
+#define doDebug 0
 
 //nRF24L01 transceiver
 //pin # for the CE pin, and pin # for the CSN pin
@@ -42,13 +51,17 @@ char RXbuffer[SIZE+1] = "A";
 char TXbuffer[SIZE+1] = "Pa";
 
 void setup() {
-  Serial.begin(115200);
-  while (!Serial); //Leonardo is slow
-  Serial.println("CW tx via BLE"); 
+  //Serial.begin(115200);
+  //while (!Serial); //Leonardo is slow
+  //Serial.println("CW tx via BLE"); 
+
+  LDR.init(false, LDRpin);
   
   digitalWrite(LED_BUILTIN, 0); pinMode(LED_BUILTIN, OUTPUT); 
   digitalWrite(KEY_LED, 0); pinMode(KEY_LED, OUTPUT); 
   digitalWrite(KEY_NPN, 0); pinMode(KEY_NPN, OUTPUT);
+
+  digitalWrite(LDRpinGND, 0); pinMode(LDRpinGND, OUTPUT);
   
   //digitalWrite(KEY_NPN, 1); digitalWrite(KEY_LED, 1); delay(25000); //testing
   //while (1) { digitalWrite(KEY_LED, 1-digitalRead(KEY_LED)); delay(250); }
@@ -74,6 +87,7 @@ void setup() {
 
   Scheduler.startLoop(LoopKeyer);
   Scheduler.startLoop(LoopIdle);
+  Scheduler.startLoop(LoopLDR);
 }
 
 bool doBeep;
@@ -149,7 +163,7 @@ void loop() {
     radio.write(&TXbuffer, 1);
     radio.write(&TXbuffer, 1);
     radio.startListening();
-  }
+  }  
 }
 
 byte curBit;
@@ -157,6 +171,29 @@ void LoopIdle() {
   for (;;) {
     Scheduler.delay(30000);
     doBeep = true;
+  }
+}
+
+void LoopLDR() {  
+  bool lastLDRstate;
+  byte retry;
+  for (;;) {
+    Scheduler.delay(5);
+    bool LDRstate = LDR.loop();
+    if (lastLDRstate != LDRstate) {
+      lastLDRstate = LDRstate;
+      retry = 5;
+    }
+    pinMode(LED_BUILTIN, OUTPUT);
+    digitalWrite(LED_BUILTIN, LDRstate);
+    if (retry >= 1) {
+      retry++;
+      TXbuffer[0]='L';
+      TXbuffer[1]=LDRstate;
+      radio.stopListening();
+      radio.write(&TXbuffer, 2);
+      radio.startListening();
+    }
   }
 }
 

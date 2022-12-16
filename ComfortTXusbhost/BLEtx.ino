@@ -71,10 +71,17 @@ void pollRX()
   while (radio.available()) {
     memset(RXbuffer,0,sizeof(RXbuffer));
     radio.read(&RXbuffer, SIZE);
-    if (RXbuffer[0] == 'O') {
-      delay(2); //remove dublicates
-      txOk = 1;
-      //Serial.println("OK");
+    switch (RXbuffer[0]) {
+      case 'O': {
+        delay(2); //remove dublicates
+        txOk = 1;
+        //Serial.println("OK");
+        break;
+      }
+      case 'L': {
+        //Serial.println( RXbuffer[1]==0? 0:1);
+        break;
+      }
     }
   }
 }
