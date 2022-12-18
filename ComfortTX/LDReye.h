@@ -29,7 +29,7 @@ void LDReye::LDRinit(bool _LDRdebug, bool _LDRsimulate, byte port)
   if (_LDRdebug) Serial.println("A0 Mean Tresh output");
 }
 
-String LDRtest0 = 
+String LDRtest0 = //CQ DE OZ1AAB (just for test)
 "111.1.111.1...111.111.1.111.......111.1.1...1.......111.111.111...111.111.1.1...1.111.111.111.111...1.111...1.111...111.1.1.1..............";
 String LDRtest;
 

@@ -19,7 +19,7 @@
  */
 
 #define doDebug 0
-#define SIMULATE true
+#define LDRSIMULATE true
 
 #include <SPI.h>
 #include "printf.h" //Installeret library
@@ -59,7 +59,7 @@ void setup() {
   while (!Serial); //Leonardo is slow
   //Serial.println("CW tx via BLE"); 
 
-  LDR.LDRinit(true, SIMULATE, LDRpin);
+  LDR.LDRinit(true, LDRSIMULATE, LDRpin);
   
   digitalWrite(LED_BUILTIN, 0); pinMode(LED_BUILTIN, OUTPUT); 
   digitalWrite(KEY_LED, 0); pinMode(KEY_LED, OUTPUT); 
