@@ -9,21 +9,18 @@
  */
 
 #include <SPI.h>
-#include "printf.h" //Installeret library
+#include "printf.h" //Installed library
 #include "RF24.h"
 
 //nRF24L01 transceiver
 //pin # for the CE pin, and pin # for the CSN pin
-//RF24 radio(9,10);     //UNO, or nano With external antenna. //Nano with nrf, Board: Nano, Normal bootloader
+RF24 radio(9,10);     //UNO, or nano With external antenna. //Nano with nrf, Board: Nano, Normal bootloader
 //RF24 radio(10,9);     //Nano, without external antenna
 //RF24 radio(7,8);      //Den røde!!! (Old bootloader)
-RF24 radio(2,3);        //DUE, med nrf24l01 på ISP port (i bunden)
+//RF24 radio(2,3);        //DUE, med nrf24l01 på ISP port (i bunden)
 
-uint8_t TXaddress[6] = "1aabT";
-uint8_t RXaddress[6] = "1aabR";
-
-#define SIZE 15
-char RXbuffer[SIZE+1];
+uint8_t RFaddress[] = "Z1aab";
+#define maxBuf 30
 
 void BLE_setup() {
   if (!radio.begin()) {
@@ -35,13 +32,13 @@ void BLE_setup() {
     }
   }
   radio.setPALevel(RF24_PA_LOW);  //0..3 = RF24_PA_MIN, LOW, HIGH, MAX
-  radio.openWritingPipe(RXaddress);
-  radio.setPayloadSize(SIZE);     // default value is the maximum 32 bytes
-  radio.openWritingPipe(RXaddress);
-  radio.openReadingPipe(1, TXaddress); // using pipe 1, RX address of the receiving end
+  radio.setPayloadSize(maxBuf);     // default value is the maximum 32 bytes
+  radio.openWritingPipe(RFaddress);
+  radio.openReadingPipe(1, RFaddress); // using pipe 1, RX address of the receiving end
+  //radio.openReadingPipe(2, 'a'); // using pipe 2
   radio.startListening();
 
-  if (0) {
+  if (doDebug) {
     printf_begin();             // needed only once for printing details
     radio.printPrettyDetails(); // (larger) function that prints human readable data
     //radio.printDetails();       // (smaller) function that prints raw register values
@@ -60,7 +57,7 @@ void BLE_loop() {
   if (txOk < 1) txOk++;
   
   if (txOk==1 & sendBuf != "") {
-    txOk=-5000;
+    txOk=-1000;   txOk=-5000;
     TXchar(sendBuf[0]);
     sendBuf.remove(0,1);
   }
@@ -69,47 +66,54 @@ void BLE_loop() {
 void pollRX()
 {
   while (radio.available()) {
+    char RXbuffer[maxBuf+1];
     memset(RXbuffer,0,sizeof(RXbuffer));
-    radio.read(&RXbuffer, SIZE);
-    switch (RXbuffer[0]) {
-      case 'O': {
-        delay(2); //remove dublicates
-        txOk = 1;
-        //Serial.println("OK");
-        break;
-      }
-      case 'L': {
-        //Serial.println( RXbuffer[1]==0? 0:1);
-        break;
-      }
+    radio.read(&RXbuffer, maxBuf);
+    Serial.print("pollRX: "); Serial.println(RXbuffer);
+    if (RXbuffer[0]=='T') {
+      delay(2); //remove dublicates
+      txOk = 1;
+      //Serial.println("OK");
     }
   }
 }
 
-// T f ss c   //T=Transmit, f=Farnsworth bits('0'..'9'), ss=wpm, c = character (simple ones)
+//sprintf https://www.programmingelectronics.com/sprintf-arduino/
+
+// Txx   Pf ss c   //Txx=Transmit,ser,crc, f=Farnsworth bits('0'..'9'), ss=wpm, c = character (simple ones)
+char ser = '0';
 void TXchar(char ch) {
   txOk=-5000;
+  byte chk = 65; ///!!!!!!!!
   if (curSpeed<10) curSpeed=10; //format error...
-  String cmd = "T";
-  cmd += Farnsworth + String(curSpeed) + String(ch);
+  char buff[30];
+  // Txx   Pf ss c   //Txx=Transmit,ser,crc, f=Farnsworth bits('0'..'9'), ss=wpm, c = character (simple ones)
+  sprintf(buff, "T%c%cP%c%.2d%c", ser,chk,Farnsworth,curSpeed,ch);
+  if (ser++ == '9') ser='0'; //'0'..'9'
   radio.stopListening();
-  radio.write(&cmd[0], cmd.length()+1 );
-  radio.write(&cmd[0], cmd.length()+1 );
-  radio.write(&cmd[0], cmd.length()+1 );
+  radio.write(&buff, strlen(buff) );
+  radio.write(&buff, strlen(buff) );
+  radio.write(&buff, strlen(buff) );
   radio.startListening();
-  Serial.print("TXchr: <"); Serial.print(cmd); Serial.println(">");
+  Serial.print(strlen(buff)); Serial.print("-TXchr: <"); Serial.print(buff); Serial.println(">");
 }
 
 // R f ss bb  //R=RawBits,  f=Farnsworth bits('0'..'9'), ss=wpm, bb=0x0082 raw bits
-void TXraw(String raw) {
-  txOk=-3000;
+void TXraw(String raw2) 
+{
   if (curSpeed<10) curSpeed=10; //format error...
-  String cmd = "R";
-  cmd += Farnsworth + String(curSpeed) + raw; //String(raw, BIN);
+  byte chk = 65; ///!!!!!!!!
+  char buff[30];
+  // Txx   Pf ss c   //Txx=Transmit,ser,crc, f=Farnsworth bits('0'..'9'), ss=wpm, c = character (simple ones)
+  char raw[20]; raw2.toCharArray(raw, 20);
+  sprintf(buff, "T%c%cR%c%.2d%s", ser,chk,Farnsworth,curSpeed,&raw);
+  if (ser++ == '9') ser='0'; //'0'..'9'
   radio.stopListening();
-  radio.write(&cmd[0], cmd.length()+1 );
-  radio.write(&cmd[0], cmd.length()+1 );
-  radio.write(&cmd[0], cmd.length()+1 );
+  radio.write(&buff, strlen(buff) );
+  radio.write(&buff, strlen(buff) );
+  radio.write(&buff, strlen(buff) );
   radio.startListening();
-  Serial.print("TXraw: <"); Serial.print(cmd); Serial.println(">");
+  Serial.print(">>>>>"); Serial.println(raw); 
+  Serial.print(strlen(buff)); Serial.print("-TXraw: <"); Serial.print(buff); Serial.println(">");
+  txOk=-3000;
 }
