@@ -38,13 +38,12 @@ RF24 radio(9,10);     //UNO, or nano With external antenna //Nano with nrf, Boar
 //RF24 radio(2,3);      //DUE, med nrf24l01 på ISP port (i bunden)
 
 uint8_t RFaddress[] = "Z1aab";
-uint8_t RFaddressXX[] = "Z1aaX";
 
 #define maxBuf 30
 char RXbuffer[maxBuf+1];
 char TXbufferIdle[] = "P0.ComfordTX";
 
-// DO NOT use LED_BUILTIN = 13 on RF-Nano 
+// DO NOT use LED_BUILTIN = 13 on RF-Nano. Does not work along with RF parts
 void Blink() {
   //pinMode(LED_BUILTIN, OUTPUT);
   //digitalWrite(LED_BUILTIN, 1-digitalRead(LED_BUILTIN));
@@ -54,7 +53,9 @@ void setup() {
   Serial.begin(115200);
   while (!Serial); //Leonardo is slow
   if (doDebug) Serial.println("\nCW tx via BLErx"); 
-
+  printf_begin();
+  
+  pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(KEY_LED, 0); pinMode(KEY_LED, OUTPUT); 
   digitalWrite(KEY_NPN, 0); pinMode(KEY_NPN, OUTPUT);
 
@@ -75,8 +76,8 @@ void setup() {
   radio.startListening(); // put radio in RX mode
   
   if (doDebug) {
-    printf_begin();             // needed only once for printing details
-    radio.printPrettyDetails(); // (larger) function that prints human readable data
+    printf_begin();               // needed only once for printing details
+    radio.printPrettyDetails();   // (larger) function that prints human readable data
     //radio.printDetails();       // (smaller) function that prints raw register values
   }
   Scheduler.startLoop(LoopKeyer);
@@ -99,9 +100,18 @@ void loop() {
     Blink();
     memset(RXbuffer,0,sizeof(RXbuffer));
     radio.read(&RXbuffer, maxBuf);     //get from FIFO
-    Serial.print("pollRX: "); Serial.println(RXbuffer);
+    //Serial.print("all RX: "); Serial.println(RXbuffer);
+
+    if (TXbufferOk[1] == RXbuffer[1]) {
+      //Serial.print("dublicate: "); Serial.println(RXbuffer);
+      return;
+    }
     
-    if (txBits) return;
+    if (txBits>1) { 
+      Serial.print("busyRX: "); Serial.print(RXbuffer); Serial.println(" stop");
+      return; 
+    }
+    
     if (RXbuffer[0] != 'T') return;
     TXbufferOk[0] = RXbuffer[0];
     TXbufferOk[1] = RXbuffer[1];
@@ -122,22 +132,19 @@ void loop() {
         if (RXbuffer[n]=='1') txBits +=1;
       }
     } else
-      return;
+      return; //Unknown
     Farnsworth = RXbuffer[4] - '0';     //TxxRf121100000011 => 'f'
     if (Farnsworth>10) Farnsworth = 0;
     String speed = "";
     speed += (char)RXbuffer[5];         //TxxRf121100000011 => "12"
     speed += (char)RXbuffer[6];
-    speed_ms = speed.toInt();
-    if (speed_ms<6) speed_ms = 6;
-    speed_ms = 1200 / speed_ms;
+    int speed_int = speed.toInt();
+    if (speed_int<6) speed_int = 6;
+    speed_ms = 1200 / speed_int;
     if (doDebug) {
-      Serial.print("RX: ");
-      Serial.print(RXbuffer);
-      Serial.print(" ["); Serial.print(speed); Serial.print(',');
-      Serial.print(speed_ms); Serial.print(',');
-      Serial.print(Farnsworth);
-      Serial.println(']');
+      char buff[80];
+      sprintf(buff, "RX: %s [Speed=%d, ms=%d, Farnsworth=%d]", RXbuffer, speed_int, speed_ms,Farnsworth);
+      Serial.println(buff);
     }
     if (!txBits) { //Space etc
       Scheduler.delay(6*speed_ms);

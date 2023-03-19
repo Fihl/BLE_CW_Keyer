@@ -35,7 +35,6 @@ void BLE_setup() {
   radio.setPayloadSize(maxBuf);     // default value is the maximum 32 bytes
   radio.openWritingPipe(RFaddress);
   radio.openReadingPipe(1, RFaddress); // using pipe 1, RX address of the receiving end
-  //radio.openReadingPipe(2, 'a'); // using pipe 2
   radio.startListening();
 
   if (doDebug) {
@@ -50,14 +49,12 @@ int txOk = 0; //-3000..0 = busy, else 1
 unsigned long nextMillis;
 void BLE_loop() {
   pollRX();
-
   if (nextMillis > millis()) return;
   nextMillis = millis()+1;
   
   if (txOk < 1) txOk++;
   
   if (txOk==1 & sendBuf != "") {
-    txOk=-1000;   txOk=-5000;
     TXchar(sendBuf[0]);
     sendBuf.remove(0,1);
   }
@@ -80,12 +77,13 @@ void pollRX()
 
 //sprintf https://www.programmingelectronics.com/sprintf-arduino/
 
-// Txx   Pf ss c   //Txx=Transmit,ser,crc, f=Farnsworth bits('0'..'9'), ss=wpm, c = character (simple ones)
 char ser = '0';
+
+// Txx   Pf ss c   //Txx=Transmit,ser,crc, f=Farnsworth bits('0'..'9'), ss=wpm, c = character (simple ones)
 void TXchar(char ch) {
-  txOk=-5000;
+  txOk=-3000;
   byte chk = 65; ///!!!!!!!!
-  if (curSpeed<10) curSpeed=10; //format error...
+  //if (curSpeed<10) curSpeed=10; //format error...
   char buff[30];
   // Txx   Pf ss c   //Txx=Transmit,ser,crc, f=Farnsworth bits('0'..'9'), ss=wpm, c = character (simple ones)
   sprintf(buff, "T%c%cP%c%.2d%c", ser,chk,Farnsworth,curSpeed,ch);
@@ -101,6 +99,7 @@ void TXchar(char ch) {
 // R f ss bb  //R=RawBits,  f=Farnsworth bits('0'..'9'), ss=wpm, bb=0x0082 raw bits
 void TXraw(String raw2) 
 {
+  txOk=-3000;
   if (curSpeed<10) curSpeed=10; //format error...
   byte chk = 65; ///!!!!!!!!
   char buff[30];
@@ -115,5 +114,4 @@ void TXraw(String raw2)
   radio.startListening();
   Serial.print(">>>>>"); Serial.println(raw); 
   Serial.print(strlen(buff)); Serial.print("-TXraw: <"); Serial.print(buff); Serial.println(">");
-  txOk=-3000;
 }

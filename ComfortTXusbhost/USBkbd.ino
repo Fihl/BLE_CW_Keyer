@@ -84,12 +84,13 @@ void KbdRptParser::myKeyPressed(uint8_t m, int key, char ch)
   if (mod.bmRightShift) Serial.print("R-Shift ");
   if (mod.bmRightAlt) Serial.print("R-Alt ");
   if (mod.bmRightCtrl) {
-    if (key==40) curSpeed=10;     //'0' => 10
-    else curSpeed = key-31 + 11;  //'1'..'9' => 11..19
+    if (key==40) curSpeed=8;     //'0' => 10
+    else if (key==39) curSpeed=10;     //'0' => 10
+    else curSpeed = key-30 + 11;   //'1'..'9' => 11..19
     Serial.print(curSpeed);
     if (curSpeed<10) curSpeed=10;
     Serial.print(", speed: "); Serial.println(curSpeed);
-    exit;
+    return;
   }
   if (mod.bmLeftCtrl) {
     doPrintInfo = true;

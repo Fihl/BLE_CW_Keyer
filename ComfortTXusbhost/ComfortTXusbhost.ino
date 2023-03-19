@@ -36,7 +36,7 @@ void loop() {
 
   if (next<millis()) {
     next = millis()+5000;
-    sendBuf += "X";
+    ///sendBuf += "X";
   }
 
   if (Serial.available()) {
