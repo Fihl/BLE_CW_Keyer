@@ -10,7 +10,7 @@
 String sendBuf = ""; 
 volatile char sendBufKbd; //Set in USBkbd
 bool doPrintInfo = true;
-byte curSpeed=18;
+byte curSpeed=8;
 char Farnsworth='0'; //'0'..'9'
 
 void setup()

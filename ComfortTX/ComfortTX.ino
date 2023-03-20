@@ -19,34 +19,59 @@
  */
 
 #define doDebug 1
+#define LDRsimulator 0
 
 #include <SPI.h>
 #include "printf.h" //Installed library
 #include "RF24.h"
 #include <Cth.h> //CopyThreads, super god
 
-#define KEY_LED 2
-#define KEY_NPN 3
-
 #define BEACON false
 
 //nRF24L01 transceiver
 //pin # for the CE pin, and pin # for the CSN pin
-RF24 radio(9,10);     //UNO, or nano With external antenna //Nano with nrf, Board: Nano, Normal bootloader
+//RF24 radio(9,10);     //UNO, or nano With external antenna //Nano with nrf, Board: Nano, Normal bootloader
 //RF24 radio(10,9);     //Nano, without external antenna DEN ER DØD !!
-//RF24 radio(7,8);      //Den røde!!! (Old bootloader)
+RF24 radio(7,8);      //Den røde!!! (Old bootloader)
 //RF24 radio(2,3);      //DUE, med nrf24l01 på ISP port (i bunden)
 
 uint8_t RFaddress[] = "Z1aab";
 
+// do NOT use LED_BUILTIN = 13 on RF-Nano. Does not work along with RF parts
+#define KEY_LED   2
+#define KEY_NPN   3
+#define LDRpin    A0
+#define LDRpinGND A1
+#define LEDpin1   A4
+#define LEDpin2   A5
+
+#define ledRF   0
+#define ledCW   1
+#define ledCW2 ledCW //Use same led
+
+#include "LDReye.h"
+LDReye LDR;
+
 #define maxBuf 30
 char RXbuffer[maxBuf+1];
 char TXbufferIdle[] = "P0.ComfordTX";
+char TXbufferLDR[]  = "L0.LDRx."; // "." => "S" when simulated
 
-// DO NOT use LED_BUILTIN = 13 on RF-Nano. Does not work along with RF parts
-void Blink() {
-  //pinMode(LED_BUILTIN, OUTPUT);
-  //digitalWrite(LED_BUILTIN, 1-digitalRead(LED_BUILTIN));
+char serBuf[80];
+
+byte LEDs = B00; //B01 = Yellow, B10=Blue
+
+void Blink(byte no) {
+  LEDs = LEDs ^ (1 << no);
+}
+
+void doLEDs() {
+  static byte BIT = 0;
+  byte NEW = (BIT = 1-BIT)? LEDs&B10:LEDs&B01;
+  pinMode(LEDpin1, OUTPUT); 
+  pinMode(LEDpin2, OUTPUT); 
+  digitalWrite(LEDpin1, NEW & B01);
+  digitalWrite(LEDpin2, NEW & B10);
 }
 
 void setup() {
@@ -55,16 +80,19 @@ void setup() {
   if (doDebug) Serial.println("\nCW tx via BLErx"); 
   printf_begin();
   
-  pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(LDRpinGND, OUTPUT); digitalWrite(LDRpinGND, 0); 
+  pinMode(LDRpin, INPUT_PULLUP);
+  LDR.LDRinit(false, LDRsimulator, LDRpin); //LDRdebug, Simulate, A0
+
   digitalWrite(KEY_LED, 0); pinMode(KEY_LED, OUTPUT); 
   digitalWrite(KEY_NPN, 0); pinMode(KEY_NPN, OUTPUT);
 
-  if (!radio.begin()) {
-    Serial.println("Radio not found!!");
-    pinMode(LED_BUILTIN, OUTPUT); 
-    while (1) { //STOP
-      digitalWrite(LED_BUILTIN, 1-digitalRead(LED_BUILTIN) );
-      delay(250);
+  if (!radio.begin()) 
+  { Serial.println("Radio not found!!");
+    LEDs = B11;
+    while (1) { //STOP all
+      Blink(ledRF);
+      for (int n=0; n<250;n++) { doLEDs(); delay(1); }
     }
   }
   radio.setPALevel(RF24_PA_LOW);  //0..3 = RF24_PA_MIN, LOW, HIGH, MAX
@@ -82,6 +110,7 @@ void setup() {
   }
   Scheduler.startLoop(LoopKeyer);
   Scheduler.startLoop(LoopIdle);
+  Scheduler.startLoop(LoopLDR);
 }
 
 bool doIdleBeep;
@@ -94,10 +123,11 @@ char TXbufferOk[4];
 
 void loop() {
   doKeying();
+  doLEDs();
   Scheduler.yield(); //delay(0);
     
   if (radio.available()) {
-    Blink();
+    Blink(ledRF);
     memset(RXbuffer,0,sizeof(RXbuffer));
     radio.read(&RXbuffer, maxBuf);     //get from FIFO
     //Serial.print("all RX: "); Serial.println(RXbuffer);
@@ -142,9 +172,8 @@ void loop() {
     if (speed_int<6) speed_int = 6;
     speed_ms = 1200 / speed_int;
     if (doDebug) {
-      char buff[80];
-      sprintf(buff, "RX: %s [Speed=%d, ms=%d, Farnsworth=%d]", RXbuffer, speed_int, speed_ms,Farnsworth);
-      Serial.println(buff);
+      sprintf(serBuf, "RX: %s [Speed=%d, ms=%d, Farnsworth=%d]", RXbuffer, speed_int, speed_ms,Farnsworth);
+      Serial.println(serBuf);
     }
     if (!txBits) { //Space etc
       Scheduler.delay(6*speed_ms);
@@ -154,7 +183,7 @@ void loop() {
   }
   
   if (doIdleBeep) {   //hver sekund måske
-    Blink();
+    Blink(ledRF);
     doIdleBeep=0;
     if (TXbufferIdle[1]++ == '9') TXbufferIdle[1]='0';
     radio.stopListening();
@@ -165,7 +194,7 @@ void loop() {
   }
   
   if (doSendOk) {
-    Blink();
+    Blink(ledRF);
     doSendOk=0;
     radio.stopListening();
     radio.write(&TXbufferOk, 2);
@@ -173,6 +202,33 @@ void loop() {
     radio.write(&TXbufferOk, 2);
     radio.startListening();
   }  
+}
+
+void LoopLDR() {  
+  bool lastLDRstate;
+  byte retry;
+  for (;;) {
+    Scheduler.delay(5);
+    
+    bool LDRstate = LDR.LDRpoll();
+    if (lastLDRstate != LDRstate) {
+      lastLDRstate = LDRstate;
+      retry = (LDRsimulator)? 1:2;
+      LEDs = LDRstate? LEDs | (1 << ledCW2): LEDs & ~(1 << ledCW2);
+      if (TXbufferLDR[1]++ == '9') TXbufferLDR[1]='0';
+      Blink(ledRF);
+    }
+    if (retry >= 1) {
+      retry--;
+      //char TXbufferLDR[]  = "L0.LDRx.";
+      TXbufferLDR[6]=LDRstate+'0';
+      if (LDRsimulator) TXbufferLDR[7]='S'; //Simulated
+      radio.stopListening();
+      radio.write(&TXbufferLDR, sizeof(TXbufferLDR));
+      radio.startListening();
+      Serial.println(TXbufferLDR);
+    }
+  }
 }
 
 void LoopKeyer() {
@@ -194,16 +250,17 @@ void LoopKeyer() {
   //test digitalWrite(KEY_LED, 1); delay(5); digitalWrite(KEY_LED, 0);
 }
 
-unsigned long nextMillis;
+unsigned long nextMillisCW;
 void doKeying(){
-  if (nextMillis > millis()) return;
-  nextMillis = millis()+10;
+  if (nextMillisCW > millis()) return;
+  nextMillisCW = millis()+10;
   byte curBit = 0;
   if (msDIHcounter) {
     msDIHcounter--;
     curBit = 1;
   }
   //if (txBits>1) Serial.print(curBit?"A":"B");
+  LEDs = curBit? LEDs | (1 << ledCW): LEDs & ~(1 << ledCW);
   digitalWrite(KEY_LED, curBit);
   digitalWrite(KEY_NPN, curBit);
 }

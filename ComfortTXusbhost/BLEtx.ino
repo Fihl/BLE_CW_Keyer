@@ -83,7 +83,6 @@ char ser = '0';
 void TXchar(char ch) {
   txOk=-3000;
   byte chk = 65; ///!!!!!!!!
-  //if (curSpeed<10) curSpeed=10; //format error...
   char buff[30];
   // Txx   Pf ss c   //Txx=Transmit,ser,crc, f=Farnsworth bits('0'..'9'), ss=wpm, c = character (simple ones)
   sprintf(buff, "T%c%cP%c%.2d%c", ser,chk,Farnsworth,curSpeed,ch);
@@ -100,7 +99,6 @@ void TXchar(char ch) {
 void TXraw(String raw2) 
 {
   txOk=-3000;
-  if (curSpeed<10) curSpeed=10; //format error...
   byte chk = 65; ///!!!!!!!!
   char buff[30];
   // Txx   Pf ss c   //Txx=Transmit,ser,crc, f=Farnsworth bits('0'..'9'), ss=wpm, c = character (simple ones)

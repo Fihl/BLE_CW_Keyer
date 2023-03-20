@@ -84,11 +84,13 @@ void KbdRptParser::myKeyPressed(uint8_t m, int key, char ch)
   if (mod.bmRightShift) Serial.print("R-Shift ");
   if (mod.bmRightAlt) Serial.print("R-Alt ");
   if (mod.bmRightCtrl) {
-    if (key==40) curSpeed=8;     //'0' => 10
-    else if (key==39) curSpeed=10;     //'0' => 10
-    else curSpeed = key-30 + 11;   //'1'..'9' => 11..19
-    Serial.print(curSpeed);
-    if (curSpeed<10) curSpeed=10;
+    byte newSpeed=0;
+    if (key==40) newSpeed=8;     //'0' => 10 .  ??
+    else if (key==39) newSpeed=10;     //'0' => 10
+    else newSpeed = (key-30)*2 + 12;   //'1'..'9' => 11..19
+    if (curSpeed<6) return;
+    if (curSpeed>30) return;
+    curSpeed = newSpeed;
     Serial.print(", speed: "); Serial.println(curSpeed);
     return;
   }
@@ -113,6 +115,7 @@ Serial.print('*');Serial.println(ch);
       //F5..F8
       case 62: sendBuf += " CQ TEST CQ TEST DE OZ1AAB OZ1AAB "; break;
       case 63: sendBuf += " CQ TEST TEST DE OZ1AAB OZ1AAB "; break;
+      case 64: sendBuf = "eeeee"; break; ///??????
       case 65: sendBuf = " e e e e e "; break;
       //F9..F12
       case 66: TXraw("1100000011"); break;  //_73_
