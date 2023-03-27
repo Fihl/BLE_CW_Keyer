@@ -19,20 +19,20 @@
  */
 
 #define doDebug 1
-#define LDRsimulator 0
+#define LDRsimulator 1
 
 #include <SPI.h>
 #include "printf.h" //Installed library
 #include "RF24.h"
-#include <Cth.h> //CopyThreads, super god
+#include <Cth.h> //CopyThreads, real nice tool
 
 #define BEACON false
 
 //nRF24L01 transceiver
 //pin # for the CE pin, and pin # for the CSN pin
-//RF24 radio(9,10);     //UNO, or nano With external antenna //Nano with nrf, Board: Nano, Normal bootloader
+RF24 radio(9,10);     //UNO, or nano With external antenna //Nano with nrf, Board: Nano, Normal bootloader
 //RF24 radio(10,9);     //Nano, without external antenna DEN ER DØD !!
-RF24 radio(7,8);      //Den røde!!! (Old bootloader)
+//RF24 radio(7,8);      //Den røde!!! (Old bootloader)
 //RF24 radio(2,3);      //DUE, med nrf24l01 på ISP port (i bunden)
 
 uint8_t RFaddress[] = "Z1aab";
@@ -205,20 +205,20 @@ void loop() {
 }
 
 void LoopLDR() {  
-  bool lastLDRstate;
-  byte retry;
+  bool lastLDRstate=99;
+  byte retry=0;
   for (;;) {
     Scheduler.delay(5);
     
     bool LDRstate = LDR.LDRpoll();
     if (lastLDRstate != LDRstate) {
       lastLDRstate = LDRstate;
-      retry = (LDRsimulator)? 1:2;
+      retry = (LDRsimulator)? 4:2;
       LEDs = LDRstate? LEDs | (1 << ledCW2): LEDs & ~(1 << ledCW2);
       if (TXbufferLDR[1]++ == '9') TXbufferLDR[1]='0';
       Blink(ledRF);
     }
-    if (retry >= 1) {
+    while (retry >= 1) {
       retry--;
       //char TXbufferLDR[]  = "L0.LDRx.";
       TXbufferLDR[6]=LDRstate+'0';
@@ -226,7 +226,8 @@ void LoopLDR() {
       radio.stopListening();
       radio.write(&TXbufferLDR, sizeof(TXbufferLDR));
       radio.startListening();
-      Serial.println(TXbufferLDR);
+      delay(retry);
+      if (!retry) Serial.println(TXbufferLDR); //Only one line
     }
   }
 }

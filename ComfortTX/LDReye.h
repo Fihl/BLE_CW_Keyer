@@ -33,7 +33,7 @@ const char PROGMEM LDRtest0[] = // VV CQ DE OZ1AAB (just for test)
 ".1.1.1.111...1.1.1.111.......111.1.111.1...111.111.1.111.......111.1.1...1.......111.111.111...111.111.1.1...1.111.111.111.111...1.111...1.111...111.1.1.1.";
 String LDRtest;
 
-int speedDelay = 50; // alt between 50&100
+int speedDelay = 100; // alt between 50&100
 bool LDReye::LDRpoll()
 {
   if (timeKeeper <= millis()) {
@@ -45,7 +45,10 @@ bool LDReye::LDRpoll()
           char myChar = pgm_read_byte_near(LDRtest0 + k);
           LDRtest += myChar;
         }
-        speedDelay = 150-speedDelay;
+        
+        //LDRtest = ".1.1.1.111..........111.111.1.1........1."; //TWE
+        //no alternate speed speedDelay = 150-speedDelay;
+        
         timeKeeper = millis()+10000; //Long delay.  First byte already send!
       }
       output = LDRtest[0]=='1'? true:false;
