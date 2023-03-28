@@ -211,6 +211,17 @@ void LoopLDR() {
     Scheduler.delay(5);
     
     bool LDRstate = LDR.LDRpoll();
+    if (TXbufferLDR[1]++ == '9') TXbufferLDR[1]='0';
+    TXbufferLDR[6]=LDRstate+'0';
+    if (LDRsimulator) TXbufferLDR[7]='S'; //Simulated
+    radio.stopListening();
+    if (!radio.write(&TXbufferLDR, sizeof(TXbufferLDR)))    //Anybody rx this?
+      if (!radio.write(&TXbufferLDR, sizeof(TXbufferLDR)))  //Just somebody...
+        Serial.println("Retried twise");
+    radio.startListening();
+    continue;
+
+
     if (lastLDRstate != LDRstate) {
       lastLDRstate = LDRstate;
       retry = (LDRsimulator)? 4:2;
@@ -218,17 +229,20 @@ void LoopLDR() {
       if (TXbufferLDR[1]++ == '9') TXbufferLDR[1]='0';
       Blink(ledRF);
     }
+    
     while (retry >= 1) {
       retry--;
       //char TXbufferLDR[]  = "L0.LDRx.";
       TXbufferLDR[6]=LDRstate+'0';
       if (LDRsimulator) TXbufferLDR[7]='S'; //Simulated
       radio.stopListening();
-      radio.write(&TXbufferLDR, sizeof(TXbufferLDR));
+      if (!radio.write(&TXbufferLDR, sizeof(TXbufferLDR)))  //Anybody rx this?
+        radio.write(&TXbufferLDR, sizeof(TXbufferLDR));
       radio.startListening();
       delay(retry);
       if (!retry) Serial.println(TXbufferLDR); //Only one line
     }
+  
   }
 }
 

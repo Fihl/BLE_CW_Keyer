@@ -39,16 +39,19 @@ bool LDReye::LDRpoll()
   if (timeKeeper <= millis()) {
     if (LDRsimulate) {
       timeKeeper = millis()+speedDelay;
-      if (LDRtest == "") { 
-        //LDRtest = LDRtest0;
+      if (LDRtest == "") {         
+        
+        //LDRtest = ".1.1.1.111..........111.111.1.1........1."; //V Z E
+        //LDRtest = ".1.1.1.111...111.111.1.1...1."; //VZE
+        //LDRtest = ".1.111.1...1.111.1.......1.111.1.."; //RR R
+        //no alternate speed speedDelay = 150-speedDelay;
+
+        if (LDRtest == "")
         for (byte k = 0; k < strlen_P(LDRtest0); k++) {
           char myChar = pgm_read_byte_near(LDRtest0 + k);
           LDRtest += myChar;
         }
-        
-        //LDRtest = ".1.1.1.111..........111.111.1.1........1."; //TWE
-        //no alternate speed speedDelay = 150-speedDelay;
-        
+
         timeKeeper = millis()+10000; //Long delay.  First byte already send!
       }
       output = LDRtest[0]=='1'? true:false;
