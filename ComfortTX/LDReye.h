@@ -45,7 +45,7 @@ bool LDReye::LDRpoll()
         //LDRtest = ".1.1.1.111...111.111.1.1...1."; //VZE
         //LDRtest = ".1.111.1...1.111.1.......1.111.1.."; //RR R
         //no alternate speed speedDelay = 150-speedDelay;
-
+        
         if (LDRtest == "")
         for (byte k = 0; k < strlen_P(LDRtest0); k++) {
           char myChar = pgm_read_byte_near(LDRtest0 + k);

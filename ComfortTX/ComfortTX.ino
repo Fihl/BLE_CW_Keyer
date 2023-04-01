@@ -19,7 +19,7 @@
  */
 
 #define doDebug 1
-#define LDRsimulator 1
+#define LDRsimulator 0
 
 #include <SPI.h>
 #include "printf.h" //Installed library
@@ -209,6 +209,8 @@ void LoopLDR() {
   byte retry=0;
   for (;;) {
     Scheduler.delay(5);
+
+    continue;   /////////////
     
     bool LDRstate = LDR.LDRpoll();
     if (TXbufferLDR[1]++ == '9') TXbufferLDR[1]='0';
