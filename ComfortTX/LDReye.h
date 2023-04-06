@@ -48,7 +48,7 @@ bool LDReye::LDRpoll()
         
         if (LDRtest == "")
         for (byte k = 0; k < strlen_P(LDRtest0); k++) {
-          char myChar = pgm_read_byte_near(LDRtest0 + k);
+          char myChar = pgm_read_byte(LDRtest0 + k);
           LDRtest += myChar;
         }
 
