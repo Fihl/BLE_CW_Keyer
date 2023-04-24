@@ -5,21 +5,93 @@
 */
 
 #include "printf.h" //Installed library
+#include <Cth.h> //CopyThreads, real nice tool
 
 #define doDebug true
 String sendBuf = ""; 
 volatile char sendBufKbd; //Set in USBkbd
 bool doPrintInfo = true;
-byte curSpeed=8;
-char Farnsworth='0'; //'0'..'9'
+byte curSpeed=12;
+int speed_ms = 1200 / 12;  // = 1200 / curSpeed;
+byte Farnsworth; //0..9
+int txBits;
+int msDIHcounter;
+String cw;
+String unBuf;
+
+//#define KEY_LED   2
+#define KEY_NPN   3
 
 void setup()
 {
   Serial.begin(115200);
   while (!Serial);
   Serial.println("Start ComfordTXusbHost");
+  //digitalWrite(KEY_LED, 0); pinMode(KEY_LED, OUTPUT); 
+  digitalWrite(KEY_NPN, 0); pinMode(KEY_NPN, OUTPUT);  
   BLE_setup();
   USBkbdSetup();
+  Scheduler.startLoop(LoopKbd);
+  Scheduler.startLoop(LoopKeying1mSec);
+}
+
+void doKeyCW() {
+  //digitalWrite(KEY_LED, 1);
+  for (byte n=0; n<cw.length(); n++) {
+    int len = cw[n]=='-'?3*speed_ms:speed_ms;
+    msDIHcounter = len;  // "Interrupt" controlled
+    Scheduler.delay(len+speed_ms); //interdih = +1 dih
+  }
+  Scheduler.delay( (Farnsworth+2) *speed_ms); //interchar = 3
+  //digitalWrite(KEY_LED, 0);
+}
+
+void LoopKbd() 
+{
+  Scheduler.delay(1);
+
+  if (sendBuf != "") {
+    char ch= sendBuf[0];
+    sendBuf.remove(0,1);
+    txBits = decode(toupper(ch)); //' '=> 0
+    if (!txBits) {
+      Scheduler.delay(7*speed_ms);
+      return;
+    }
+    cw="";
+    do {
+      if (txBits & 1) cw="-"+cw; else cw="."+cw; 
+      txBits = txBits/2;
+    } while (txBits>1);
+    //if (doDebug) Serial.println(cw);
+    TXraw(cw);
+    doKeyCW();
+    return;
+  }
+
+  if (unBuf!="") {
+    cw=unBuf;
+    unBuf="";
+    //if (doDebug) Serial.println(cw);
+    TXraw(cw);
+    doKeyCW();
+    return;
+  }
+}
+
+void LoopKeying1mSec()
+{
+  static unsigned long next1mSec;
+  while (next1mSec > millis()) Scheduler.yield();
+  next1mSec = millis()+1;
+
+  byte curBit = 0;
+  if (msDIHcounter) {
+    msDIHcounter--;
+    curBit = 1;
+  }
+  //digitalWrite(KEY_LED, curBit);
+  digitalWrite(KEY_NPN, curBit);
 }
 
 // DO NOT use LED_BUILTIN = 13 on RF-Nano 
@@ -28,16 +100,9 @@ void Blink() {
   //digitalWrite(LED_BUILTIN, 1-digitalRead(LED_BUILTIN));
 }
 
-unsigned long next;
-
 void loop() {
+  Scheduler.yield(); //delay(0);
   USBkbdIdle();
-  BLE_loop();
-
-  if (next<millis()) {
-    next = millis()+5000;
-    ///sendBuf += "X";
-  }
 
   if (Serial.available()) {
     while (Serial.available()) {
@@ -54,6 +119,7 @@ void loop() {
   if (doPrintInfo) {
     doPrintInfo = false;
     Serial.print("Speed:"); Serial.print(curSpeed);
+    Serial.print(", delayMs:"); Serial.print(speed_ms);
     Serial.print(", Farnsworth:"); Serial.print(Farnsworth);
     Serial.print(", sendBuf:"); Serial.println(sendBuf);
   }

@@ -31,7 +31,7 @@ void BLE_setup() {
       delay(100);
     }
   }
-  radio.setPALevel(RF24_PA_LOW);  //0..3 = RF24_PA_MIN, LOW, HIGH, MAX
+  radio.setPALevel(RF24_PA_HIGH);  //0..3 = RF24_PA_MIN, LOW, HIGH, MAX
   radio.setPayloadSize(maxBuf);     // default value is the maximum 32 bytes
   radio.openWritingPipe(RFaddress);
   radio.openReadingPipe(1, RFaddress); // using pipe 1, RX address of the receiving end
@@ -44,72 +44,23 @@ void BLE_setup() {
   }
 }
 
-int txOk = 0; //-3000..0 = busy, else 1
-
-unsigned long nextMillis;
-void BLE_loop() {
-  pollRX();
-  if (nextMillis > millis()) return;
-  nextMillis = millis()+1;
-  
-  if (txOk < 1) txOk++;
-  
-  if (txOk==1 & sendBuf != "") {
-    TXchar(sendBuf[0]);
-    sendBuf.remove(0,1);
-  }
-}
-
-void pollRX()
-{
-  while (radio.available()) {
-    char RXbuffer[maxBuf+1];
-    memset(RXbuffer,0,sizeof(RXbuffer));
-    radio.read(&RXbuffer, maxBuf);
-    Serial.print("pollRX: "); Serial.println(RXbuffer);
-    if (RXbuffer[0]=='T') {
-      delay(2); //remove dublicates
-      txOk = 1;
-      //Serial.println("OK");
-    }
-  }
-}
+char ser = '0';
 
 //sprintf https://www.programmingelectronics.com/sprintf-arduino/
 
-char ser = '0';
-
-// Txx   Pf ss c   //Txx=Transmit,ser,crc, f=Farnsworth bits('0'..'9'), ss=wpm, c = character (simple ones)
-void TXchar(char ch) {
-  txOk=-3000;
-  byte chk = 65; ///!!!!!!!!
-  char buff[30];
-  // Txx   Pf ss c   //Txx=Transmit,ser,crc, f=Farnsworth bits('0'..'9'), ss=wpm, c = character (simple ones)
-  sprintf(buff, "T%c%cP%c%.2d%c", ser,chk,Farnsworth,curSpeed,ch);
-  if (ser++ == '9') ser='0'; //'0'..'9'
-  radio.stopListening();
-  radio.write(&buff, strlen(buff) );
-  radio.write(&buff, strlen(buff) );
-  radio.write(&buff, strlen(buff) );
-  radio.startListening();
-  Serial.print(strlen(buff)); Serial.print("-TXchr: <"); Serial.print(buff); Serial.println(">");
-}
-
-// R f ss bb  //R=RawBits,  f=Farnsworth bits('0'..'9'), ss=wpm, bb=0x0082 raw bits
 void TXraw(String raw2) 
 {
-  txOk=-3000;
-  byte chk = 65; ///!!!!!!!!
+  byte chk = 65; //Unused..
   char buff[30];
-  // Txx   Pf ss c   //Txx=Transmit,ser,crc, f=Farnsworth bits('0'..'9'), ss=wpm, c = character (simple ones)
+  // Txx   CW ss cccc   //Txx=Transmit,ser,crc,CW,ss,bits('.' / '-'), ss=wpm, c = character (simple ones)
   char raw[20]; raw2.toCharArray(raw, 20);
-  sprintf(buff, "T%c%cR%c%.2d%s", ser,chk,Farnsworth,curSpeed,&raw);
   if (ser++ == '9') ser='0'; //'0'..'9'
+  sprintf(buff, "T%c%cCW%.2d%s", ser,chk,curSpeed,&raw);
   radio.stopListening();
-  radio.write(&buff, strlen(buff) );
-  radio.write(&buff, strlen(buff) );
-  radio.write(&buff, strlen(buff) );
+  for (byte n=0; n<3; n++) {
+    delay(1);
+    radio.write(&buff, strlen(buff) );
+  }
   radio.startListening();
-  Serial.print(">>>>>"); Serial.println(raw); 
-  Serial.print(strlen(buff)); Serial.print("-TXraw: <"); Serial.print(buff); Serial.println(">");
+  Serial.print("TXraw: <"); Serial.print(buff); Serial.println(">");
 }

@@ -59,8 +59,7 @@ void KbdRptParser::OnKeyDown(uint8_t m, uint8_t key)
   PrintKey(m, key);
   char ch = OemToAscii(m, key);
   myKeyPressed(m,key,ch);
-  //if (ch>' ') Serial.print(ch);
-  Serial.println();
+  //if (ch>' ') Serial.println(ch); 
 }
 
 
@@ -85,26 +84,25 @@ void KbdRptParser::myKeyPressed(uint8_t m, int key, char ch)
   if (mod.bmRightAlt) Serial.print("R-Alt ");
   if (mod.bmRightCtrl) {
     byte newSpeed=0;
-    if (key==40) newSpeed=8;     //'0' => 10 .  ??
-    else if (key==39) newSpeed=10;     //'0' => 10
-    else newSpeed = (key-30)*2 + 12;   //'1'..'9' => 11..19
-    if (curSpeed<6) return;
-    if (curSpeed>30) return;
-    curSpeed = newSpeed;
+    if (key==40) newSpeed=8;            //'0' => 10 .  ??
+    else if (key==39) newSpeed=10;      //'0' => 10
+    else newSpeed = (key-30)*2 + 12;    //'1'..'9' => 11..19
+    if (newSpeed>=6 & newSpeed<=30)
+      curSpeed = newSpeed;
+    speed_ms = 1200 / curSpeed;
     Serial.print(", speed: "); Serial.println(curSpeed);
     return;
   }
   if (mod.bmLeftCtrl) {
     doPrintInfo = true;
-Serial.print('*');Serial.println(ch);
     switch (ch) {
-    case 'Q': Farnsworth='0'; break;
-    case 'W': Farnsworth='2'; break;
-    case 'E': Farnsworth='4'; break;
-    case 'R': Farnsworth='6'; break;
-    case 'T': Farnsworth='8'; break;
-    case 'Y': Farnsworth='9'; break;
-    case '7': TXraw("1100000011"); break; // 7+3 exit;    //TXraw(B111<<8 + B00000011); // 7+3 
+    case 'Q': Farnsworth=0; break;
+    case 'W': Farnsworth=2; break;
+    case 'E': Farnsworth=4; break;
+    case 'R': Farnsworth=6; break;
+    case 'T': Farnsworth=8; break;
+    case 'Y': Farnsworth=9; break;
+    case '7': unBuf="--......--"; break; // 7+3 73
     }
   }
   if (ch==0) {
@@ -118,19 +116,20 @@ Serial.print('*');Serial.println(ch);
       case 64: sendBuf = "eeeee"; break; ///??????
       case 65: sendBuf = " e e e e e "; break;
       //F9..F12
-      case 66: TXraw("1100000011"); break;  //_73_
-      case 67: TXraw("1000101"); break;     //_BK_
+      case 66: unBuf="--......--"; break; // 7+3 _73_
+      case 67: unBuf="-...-.-"; break; // _BK_
     }
   }
   if (m) {
     doPrintInfo = true;
   } else {
     if (ch >= ' ') {
-      Serial.write(ch); //ASCII translation 
-      Serial.println(" <<<<");
+      Serial.println(ch); //ASCII translation 
       //sendBufKbd = ch;
       sendBuf += ch;
       doPrintInfo = true;
+      return;
     }
   }
+  Serial.println();
 }

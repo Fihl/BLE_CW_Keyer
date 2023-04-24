@@ -158,7 +158,7 @@ void loop() {
       txBits=1;
       for (int n=7; n<maxBuf; n++) {      //TxxRf121100000011 => "1100000011"
         if (RXbuffer[n]==0) break;
-        txBits = txBits*2;
+        txBits *= 2;
         if (RXbuffer[n]=='1') txBits +=1;
       }
     } else
