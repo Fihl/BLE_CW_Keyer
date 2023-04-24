@@ -18,8 +18,7 @@
  * 
  */
 
-#define doDebug 1
-#define LDRsimulator 0
+#define doDebug 0
 
 #include <SPI.h>
 #include "printf.h" //Installed library
@@ -40,17 +39,12 @@ uint8_t RFaddress[] = "Z1aab";
 // do NOT use LED_BUILTIN = 13 on RF-Nano. Does not work along with RF parts
 #define KEY_LED   2
 #define KEY_NPN   3
-#define LDRpin    A0
-#define LDRpinGND A1
 #define LEDpin1   A4
 #define LEDpin2   A5
 
 #define ledRF   0
 #define ledCW   1
 #define ledCW2 ledCW //Use same led
-
-#include "LDReye.h"
-LDReye LDR;
 
 #define maxBuf 30
 char RXbuffer[maxBuf+1];
@@ -80,10 +74,6 @@ void setup() {
   if (doDebug) Serial.println("\nCW tx via BLErx"); 
   printf_begin();
   
-  pinMode(LDRpinGND, OUTPUT); digitalWrite(LDRpinGND, 0); 
-  pinMode(LDRpin, INPUT_PULLUP);
-  LDR.LDRinit(false, LDRsimulator, LDRpin); //LDRdebug, Simulate, A0
-
   digitalWrite(KEY_LED, 0); pinMode(KEY_LED, OUTPUT); 
   digitalWrite(KEY_NPN, 0); pinMode(KEY_NPN, OUTPUT);
 
@@ -95,7 +85,7 @@ void setup() {
       for (int n=0; n<250;n++) { doLEDs(); delay(1); }
     }
   }
-  radio.setPALevel(RF24_PA_LOW);  //0..3 = RF24_PA_MIN, LOW, HIGH, MAX
+  radio.setPALevel(RF24_PA_HIGH);  //0..3 = RF24_PA_MIN=-18dBm, RF24_PA_LOW=-12dBm, RF24_PA_HIGH=-6dBM, and RF24_PA_MAX=0dBm
   radio.setPayloadSize(maxBuf);     // default value is the maximum 32 bytes
   radio.openWritingPipe(RFaddress);
   if (!BEACON) radio.openReadingPipe(1, RFaddress); // using pipe 1, RX address of the receiving end
@@ -109,22 +99,19 @@ void setup() {
     //radio.printDetails();       // (smaller) function that prints raw register values
   }
   Scheduler.startLoop(LoopKeyer);
-  Scheduler.startLoop(LoopIdle);
-  Scheduler.startLoop(LoopLDR);
+  // Scheduler.startLoop(LoopIdle);
 }
 
-bool doIdleBeep;
-bool doSendOk;
+// bool doSendOk;
 int speed_ms;  // 100 = 12wpm
 int txBits;
-byte Farnsworth;
 volatile int msDIHcounter;
-char TXbufferOk[4];
+char TXbufferOk[2];
 
 void loop() {
+  Scheduler.yield(); //delay(0);
   doKeying();
   doLEDs();
-  Scheduler.yield(); //delay(0);
     
   if (radio.available()) {
     Blink(ledRF);
@@ -142,29 +129,23 @@ void loop() {
       return; 
     }
     
-    if (RXbuffer[0] != 'T') return;
-    TXbufferOk[0] = RXbuffer[0];
+    if (RXbuffer[0] != 'T') return;   //Commands are 'T' 
+    //------------------------------  //hsBLE syntax
+    TXbufferOk[0] = RXbuffer[0];    
     TXbufferOk[1] = RXbuffer[1];
     
-    // RX= one of...
-    // TxxRf121100000011 = TX('1100000011', speed=12, F=Farnsworth)
-    // TxxP24s = TX('s', speed=24, F=Farnsworth)
-    // fx T2AP018c T5AP418E,  TxxRf121100000011
+    // RX= 
+    // TxxCW121100000011 = TX('1100000011', speed=12
     
-    if (RXbuffer[3] == 'P') 
-      txBits = decode(toupper(RXbuffer[7]));
-    else
-    if (RXbuffer[3] == 'R')  {
+    if (RXbuffer[3] == 'C' & RXbuffer[4] == 'W')  {
       txBits=1;
-      for (int n=7; n<maxBuf; n++) {      //TxxRf121100000011 => "1100000011"
+      for (int n=7; n<maxBuf; n++) {      //TxxCW--......-- => _73_
         if (RXbuffer[n]==0) break;
         txBits = txBits*2;
-        if (RXbuffer[n]=='1') txBits +=1;
+        if (RXbuffer[n]=='1' | RXbuffer[n]=='-') txBits +=1;
       }
     } else
       return; //Unknown
-    Farnsworth = RXbuffer[4] - '0';     //TxxRf121100000011 => 'f'
-    if (Farnsworth>10) Farnsworth = 0;
     String speed = "";
     speed += (char)RXbuffer[5];         //TxxRf121100000011 => "12"
     speed += (char)RXbuffer[6];
@@ -172,80 +153,37 @@ void loop() {
     if (speed_int<6) speed_int = 6;
     speed_ms = 1200 / speed_int;
     if (doDebug) {
-      sprintf(serBuf, "RX: %s [Speed=%d, ms=%d, Farnsworth=%d]", RXbuffer, speed_int, speed_ms,Farnsworth);
+      sprintf(serBuf, "RX: Speed=%d, ms=%d, %s", speed_int, speed_ms, RXbuffer);
       Serial.println(serBuf);
     }
-    if (!txBits) { //Space etc
-      Scheduler.delay(6*speed_ms);
-      doSendOk = 1;
-    }
+    // if (!txBits) { //Space etc
+    //   Scheduler.delay(6*speed_ms);
+    //   doSendOk = 1;
+    // }
     //for (delay(1); radio.available(); radio.read(&RXbuffer, maxBuf) ); //Flush
   }
   
-  if (doIdleBeep) {   //hver sekund måske
-    Blink(ledRF);
-    doIdleBeep=0;
-    if (TXbufferIdle[1]++ == '9') TXbufferIdle[1]='0';
-    radio.stopListening();
-    radio.write(&TXbufferIdle, sizeof(TXbufferIdle) );
-    radio.startListening();
-    if (doDebug) Serial.print("TX idle ");
-    if (doDebug) Serial.println(TXbufferIdle);
-  }
+  // if (doIdleBeep) {   //hver sekund måske
+  //   Blink(ledRF);
+  //   doIdleBeep=0;
+  //   if (TXbufferIdle[1]++ == '9') TXbufferIdle[1]='0';
+  //   radio.stopListening();
+  //   radio.write(&TXbufferIdle, sizeof(TXbufferIdle) );
+  //   radio.startListening();
+  //   if (doDebug) Serial.print("TX idle ");
+  //   if (doDebug) Serial.println(TXbufferIdle);
+  // }
   
-  if (doSendOk) {
-    Blink(ledRF);
-    doSendOk=0;
-    radio.stopListening();
-    radio.write(&TXbufferOk, 2);
-    radio.write(&TXbufferOk, 2);
-    radio.write(&TXbufferOk, 2);
-    radio.startListening();
-  }  
-}
-
-void LoopLDR() {  
-  bool lastLDRstate=99;
-  byte retry=0;
-  for (;;) {
-    Scheduler.delay(5);
-
-    continue;   /////////////
-    
-    bool LDRstate = LDR.LDRpoll();
-    if (TXbufferLDR[1]++ == '9') TXbufferLDR[1]='0';
-    TXbufferLDR[6]=LDRstate+'0';
-    if (LDRsimulator) TXbufferLDR[7]='S'; //Simulated
-    radio.stopListening();
-    if (!radio.write(&TXbufferLDR, sizeof(TXbufferLDR)))    //Anybody rx this?
-      if (!radio.write(&TXbufferLDR, sizeof(TXbufferLDR)))  //Just somebody...
-        Serial.println("Retried twise");
-    radio.startListening();
-    continue;
-
-
-    if (lastLDRstate != LDRstate) {
-      lastLDRstate = LDRstate;
-      retry = (LDRsimulator)? 4:2;
-      LEDs = LDRstate? LEDs | (1 << ledCW2): LEDs & ~(1 << ledCW2);
-      if (TXbufferLDR[1]++ == '9') TXbufferLDR[1]='0';
-      Blink(ledRF);
-    }
-    
-    while (retry >= 1) {
-      retry--;
-      //char TXbufferLDR[]  = "L0.LDRx.";
-      TXbufferLDR[6]=LDRstate+'0';
-      if (LDRsimulator) TXbufferLDR[7]='S'; //Simulated
-      radio.stopListening();
-      if (!radio.write(&TXbufferLDR, sizeof(TXbufferLDR)))  //Anybody rx this?
-        radio.write(&TXbufferLDR, sizeof(TXbufferLDR));
-      radio.startListening();
-      delay(retry);
-      if (!retry) Serial.println(TXbufferLDR); //Only one line
-    }
-  
-  }
+  // if (doSendOk) {
+  //   Blink(ledRF);
+  //   doSendOk=0;
+  //   radio.stopListening();
+  //   for (byte n=0;n<2;n++) {
+  //     delay(1);
+  //     radio.write(&TXbufferOk, sizeof(TXbufferOk));
+  //   }
+  //   radio.startListening();
+  // }  
 }
 
 void LoopKeyer() {
@@ -256,14 +194,14 @@ void LoopKeyer() {
     if (txBits & 1) cw="-"+cw; else cw="."+cw; 
     txBits = txBits/2;
   } while (txBits>1);
-  if (doDebug) Serial.println(cw);
+  // if (doDebug) Serial.println(cw);
   for (byte n=0; n<cw.length(); n++) {
     int len = cw[n]=='-'?3*speed_ms:speed_ms;
     msDIHcounter = len / 10;
     Scheduler.delay(len+speed_ms); //interdih = 1
   }
-  doSendOk = 1;
-  Scheduler.delay(speed_ms* (2+Farnsworth)); //interchar = 3
+  // Scheduler.delay(speed_ms* 2); //interchar = 3
+  // doSendOk = 1;
   //test digitalWrite(KEY_LED, 1); delay(5); digitalWrite(KEY_LED, 0);
 }
 
@@ -280,11 +218,19 @@ void doKeying(){
   LEDs = curBit? LEDs | (1 << ledCW): LEDs & ~(1 << ledCW);
   digitalWrite(KEY_LED, curBit);
   digitalWrite(KEY_NPN, curBit);
-}
-
-void LoopIdle() {
-  for (;;) {
-    if (BEACON) Scheduler.delay(10000); else Scheduler.delay(30000);
-    doIdleBeep = true;
+  if (!doDebug) {
+    static byte div10;
+    div10++;
+    if (div10 == 2) {
+      div10=0;
+      Serial.println(curBit);
+    }
   }
 }
+
+// void LoopIdle() {
+//   for (;;) {
+//     if (BEACON) Scheduler.delay(10000); else Scheduler.delay(30000);
+//     doIdleBeep = true;
+//   }
+// }
