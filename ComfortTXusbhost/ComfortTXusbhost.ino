@@ -7,7 +7,8 @@
 #include "printf.h" //Installed library
 #include <Cth.h> //CopyThreads, real nice tool
 
-#define doDebug true
+#define doDebug false
+
 String sendBuf = ""; 
 volatile char sendBufKbd; //Set in USBkbd
 bool doPrintInfo = true;
@@ -26,7 +27,7 @@ void setup()
 {
   Serial.begin(115200);
   while (!Serial);
-  Serial.println("Start ComfordTXusbHost");
+  if (doDebug) Serial.println("Start ComfordTXusbHost");
   //digitalWrite(KEY_LED, 0); pinMode(KEY_LED, OUTPUT); 
   digitalWrite(KEY_NPN, 0); pinMode(KEY_NPN, OUTPUT);  
   BLE_setup();
@@ -36,14 +37,12 @@ void setup()
 }
 
 void doKeyCW() {
-  //digitalWrite(KEY_LED, 1);
   for (byte n=0; n<cw.length(); n++) {
     int len = cw[n]=='-'?3*speed_ms:speed_ms;
-    msDIHcounter = len;  // "Interrupt" controlled
+    msDIHcounter = len;  // Handled in "Interrupt" controller part
     Scheduler.delay(len+speed_ms); //interdih = +1 dih
   }
   Scheduler.delay( (Farnsworth+2) *speed_ms); //interchar = 3
-  //digitalWrite(KEY_LED, 0);
 }
 
 void LoopKbd() 
@@ -92,6 +91,17 @@ void LoopKeying1mSec()
   }
   //digitalWrite(KEY_LED, curBit);
   digitalWrite(KEY_NPN, curBit);
+  static byte decay;
+  if (curBit) decay=120;
+  if (!doDebug & decay>1) {
+    static byte div10;
+    div10++;
+    if (div10 == 5) {
+      div10=0;
+      decay--;
+      Serial.println(curBit);
+    }
+  }
 }
 
 // DO NOT use LED_BUILTIN = 13 on RF-Nano 
@@ -116,7 +126,7 @@ void loop() {
     sendBuf += sendBufKbd;
   sendBufKbd = 0;
 
-  if (doPrintInfo) {
+  if (doPrintInfo & doDebug) {
     doPrintInfo = false;
     Serial.print("Speed:"); Serial.print(curSpeed);
     Serial.print(", delayMs:"); Serial.print(speed_ms);

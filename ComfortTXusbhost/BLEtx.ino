@@ -37,8 +37,8 @@ void BLE_setup() {
   radio.openReadingPipe(1, RFaddress); // using pipe 1, RX address of the receiving end
   radio.startListening();
 
+  printf_begin();               // needed only once for printing details
   if (doDebug) {
-    printf_begin();             // needed only once for printing details
     radio.printPrettyDetails(); // (larger) function that prints human readable data
     //radio.printDetails();       // (smaller) function that prints raw register values
   }
@@ -62,5 +62,5 @@ void TXraw(String raw2)
     radio.write(&buff, strlen(buff) );
   }
   radio.startListening();
-  Serial.print("TXraw: <"); Serial.print(buff); Serial.println(">");
+  if (doDebug) { Serial.print("TXraw: <"); Serial.print(buff); Serial.println(">"); }
 }

@@ -38,20 +38,22 @@ void KbdRptParser::PrintKey(uint8_t m, uint8_t key)
 {
   MODIFIERKEYS mod;
   *((uint8_t*)&mod) = m;
-  Serial.print("Key ");
-  Serial.print((mod.bmLeftCtrl   ) ? "C" : " ");
-  Serial.print((mod.bmLeftShift  ) ? "S" : " ");
-  Serial.print((mod.bmLeftAlt    ) ? "A" : " ");
-  Serial.print((mod.bmLeftGUI    ) ? "G" : " ");
-  Serial.print(" <");
-  //Serial.print(key,HEX);
-  PrintHex<uint8_t>(key, 0x80);
-  Serial.print("> ");
-  Serial.print((mod.bmRightCtrl  ) ? "C" : " ");
-  Serial.print((mod.bmRightShift ) ? "S" : " ");
-  Serial.print((mod.bmRightAlt   ) ? "A" : " ");
-  Serial.print((mod.bmRightGUI   ) ? "G" : " ");
-  Serial.print("  ");
+  if (doDebug) {
+    Serial.print("Key ");
+    Serial.print((mod.bmLeftCtrl   ) ? "C" : " ");
+    Serial.print((mod.bmLeftShift  ) ? "S" : " ");
+    Serial.print((mod.bmLeftAlt    ) ? "A" : " ");
+    Serial.print((mod.bmLeftGUI    ) ? "G" : " ");
+    Serial.print(" <");
+    //Serial.print(key,HEX);
+    PrintHex<uint8_t>(key, 0x80);
+    Serial.print("> ");
+    Serial.print((mod.bmRightCtrl  ) ? "C" : " ");
+    Serial.print((mod.bmRightShift ) ? "S" : " ");
+    Serial.print((mod.bmRightAlt   ) ? "A" : " ");
+    Serial.print((mod.bmRightGUI   ) ? "G" : " ");
+    Serial.print("  ");
+  }
 };
 
 void KbdRptParser::OnKeyDown(uint8_t m, uint8_t key)
@@ -69,41 +71,40 @@ void KbdRptParser::myKeyPressed(uint8_t m, int key, char ch)
   MODIFIERKEYS mod;
   *((uint8_t*)&mod) = m;
   Blink();
-  Serial.print("Key:");
-  Serial.print(key);
-  Serial.print(", Mod:");
-//  Serial.print(mod);
-  Serial.print(" => ");
-
-  if (mod.bmLeftCtrl) Serial.print("L-Ctrl ");
-  if (mod.bmLeftShift) Serial.print("L-Shift ");
-  if (mod.bmLeftAlt) Serial.print("LeftAlt ");
-
-  if (mod.bmRightCtrl) Serial.print("R-Ctrl ");
-  if (mod.bmRightShift) Serial.print("R-Shift ");
-  if (mod.bmRightAlt) Serial.print("R-Alt ");
+  if (doDebug) {
+    Serial.print("Key:");
+    Serial.print(key);
+    Serial.print(", Mod:");
+  //  Serial.print(mod);
+    Serial.print(" => ");
+  
+    if (mod.bmLeftCtrl) Serial.print("L-Ctrl ");
+    if (mod.bmLeftShift) Serial.print("L-Shift ");
+    if (mod.bmLeftAlt) Serial.print("LeftAlt ");
+  
+    if (mod.bmRightCtrl) Serial.print("R-Ctrl ");
+    if (mod.bmRightShift) Serial.print("R-Shift ");
+    if (mod.bmRightAlt) Serial.print("R-Alt ");
+  }
   if (mod.bmRightCtrl) {
-    byte newSpeed=0;
-    if (key==40) newSpeed=8;            //'0' => 10 .  ??
-    else if (key==39) newSpeed=10;      //'0' => 10
-    else newSpeed = (key-30)*2 + 12;    //'1'..'9' => 11..19
-    if (newSpeed>=6 & newSpeed<=30)
-      curSpeed = newSpeed;
+    byte newval=0;
+    if (key==39) newval=10;           //'0' => 10
+    if (key==53) newval=10;           //'1/2' => 10
+    else newval = (key-30) + 11;      //'1'..'9' => 11..19
+    if (newval>=6 & newval<=30)
+      curSpeed = newval;
     speed_ms = 1200 / curSpeed;
-    Serial.print(", speed: "); Serial.println(curSpeed);
+    if (doDebug) { Serial.print(", speed: "); Serial.println(curSpeed); }
     return;
   }
   if (mod.bmLeftCtrl) {
     doPrintInfo = true;
-    switch (ch) {
-    case 'Q': Farnsworth=0; break;
-    case 'W': Farnsworth=2; break;
-    case 'E': Farnsworth=4; break;
-    case 'R': Farnsworth=6; break;
-    case 'T': Farnsworth=8; break;
-    case 'Y': Farnsworth=9; break;
-    case '7': unBuf="--......--"; break; // 7+3 73
-    }
+    byte newval=0;
+    if (key==39) newval=0;            //'0' => 0
+    if (key==53) newval=0;            //'1/2' => 0
+    else newval = key-30+1;           //'1'..'9' => 1..9
+    if (newval<=9)
+      Farnsworth = newval;
   }
   if (ch==0) {
     doPrintInfo = true;
@@ -124,12 +125,12 @@ void KbdRptParser::myKeyPressed(uint8_t m, int key, char ch)
     doPrintInfo = true;
   } else {
     if (ch >= ' ') {
-      Serial.println(ch); //ASCII translation 
+      if (doDebug) Serial.println(ch); //ASCII translation 
       //sendBufKbd = ch;
       sendBuf += ch;
       doPrintInfo = true;
       return;
     }
   }
-  Serial.println();
+  if (doDebug) Serial.println();
 }
