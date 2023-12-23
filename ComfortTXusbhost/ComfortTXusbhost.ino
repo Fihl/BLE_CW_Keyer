@@ -12,7 +12,7 @@
 String sendBuf = ""; 
 volatile char sendBufKbd; //Set in USBkbd
 bool doPrintInfo = true;
-byte curSpeed=12;
+byte curSpeed=18;
 int speed_ms = 1200 / 12;  // = 1200 / curSpeed;
 byte Farnsworth; //0..9
 int txBits;
@@ -99,7 +99,7 @@ void LoopKeying1mSec()
     if (div10 == 5) {
       div10=0;
       decay--;
-      Serial.println(curBit);
+      Serial.println(curSpeed+curBit);
     }
   }
 }
