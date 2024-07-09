@@ -52,8 +52,8 @@ void TXraw(String raw2)
 {
   byte chk = 65; //Unused..
   char buff[30];
-  // Txx   CW ss cccc   //Txx=Transmit,ser,crc,CW,ss,bits('.' / '-'), ss=wpm, c = character (simple ones)
-  char raw[20]; raw2.toCharArray(raw, 20);
+  // TxxCW ss cccc   //Txx=Transmit,ser,crc,CW,ss,bits('.' / '-'), ss=wpm, c = character (simple ones)
+  char raw[20]; raw2.toCharArray(raw, 20);   //(OneNote BLEtx)
   if (ser++ == '9') ser='0'; //'0'..'9'
   sprintf(buff, "T%c%cCW%.2d%s", ser,chk,curSpeed,&raw);
   radio.stopListening();
